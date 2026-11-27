@@ -1,0 +1,9 @@
+{
+  "cycle_signal_week": 21,
+  "flat_weeks": 6,
+  "lead_weeks": 8,
+  "onset_week": 12,
+  "scenario": "capacity_drop",
+  "steady_scenario_signals": false,
+  "wip_signal_week": 13
+}

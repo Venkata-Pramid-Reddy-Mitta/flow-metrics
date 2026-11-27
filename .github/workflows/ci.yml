@@ -1,0 +1,112 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: test (py${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.9", "3.11", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install (dev extras)
+        run: python -m pip install -e ".[dev]"
+
+      - name: Lint (ruff and the em-dash guard)
+        run: |
+          ruff check .
+          python tools/check_no_emdash.py
+
+      - name: Tests with branch coverage
+        run: |
+          python -m pytest -q \
+            --junitxml=junit.xml \
+            --cov=flowmetrics --cov-branch \
+            --cov-report=xml:coverage.xml \
+            --cov-report=json:coverage.json \
+            --cov-report=term-missing
+
+      - name: Coverage floor
+        run: |
+          python - <<'PY'
+          import json
+          pct = json.load(open("coverage.json"))["totals"]["percent_covered"]
+          floor = 95.0
+          print(f"line coverage {pct:.1f}%, floor {floor}%")
+          raise SystemExit(0 if pct >= floor else 1)
+          PY
+
+      - name: Re-measure numbers and check the prose
+        run: |
+          python tools/collect_metrics.py --skip-tests
+          python tools/check_numbers.py
+
+      - name: Awkward table to the job summary
+        if: always()
+        run: |
+          python - <<'PY' >> "$GITHUB_STEP_SUMMARY"
+          import json
+          from pathlib import Path
+          path = Path("docs/metrics.json")
+          if not path.exists():
+              raise SystemExit(0)
+          m = json.loads(path.read_text(encoding="utf-8"))["metrics"]
+          print("### flow-metrics: the numbers it would rather not publish\n")
+          print("| Claim | Value |")
+          print("| --- | --- |")
+          print(f"| WIP band break vs cycle-time average break | week {m['wip_signal_week']} vs week {m['cycle_signal_week']} ({m['lead_weeks']}-week lead) |")
+          print(f"| Cycle-time survivorship understatement (week {m['survivorship_worst_week']}) | {m['reported_ct_worst_days']}d reported vs {m['eventual_ct_worst_days']}d eventual ({m['survivorship_gap_pct_display']}%) |")
+          print(f"| Little's Law divergence (steady vs transition) | {m['littles_steady_pct_display']}% vs {m['littles_transition_pct_display']}% ({m['littles_ratio_display']}x wider) |")
+          print(f"| Transient-burst ambiguity boundary | {m['ambiguous_weeks']} weeks (distinguishable at week {m['distinguishable_week']}) |")
+          PY
+
+      - name: Upload experiment JSON and metrics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: metrics-py${{ matrix.python-version }}
+          path: |
+            docs/metrics.json
+            docs/experiments/*.json
+
+  runtime-no-extras:
+    name: runtime imports with zero dependencies
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install without any extras
+        run: python -m pip install -e .
+
+      - name: The runtime must import and run on the standard library alone
+        run: |
+          python -c "import flowmetrics; from flowmetrics.analysis import analyze; print('runtime ok')"
+          set +e
+          python -m flowmetrics.cli check
+          rc_drop=$?
+          set -e
+          echo "capacity_drop exit code: $rc_drop"
+          test "$rc_drop" -eq 2
+          python -m flowmetrics.cli check --events data/events_steady.csv

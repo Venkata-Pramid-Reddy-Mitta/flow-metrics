@@ -1,0 +1,8 @@
+{
+  "alarm_week": 13,
+  "ambiguous_weeks": 5,
+  "burst_wip_signal_week": 12,
+  "distinguishable_from_week": 18,
+  "drop_wip_signal_week": 13,
+  "max_rel_wip_diff_first_3wk_pct": 47.1
+}
