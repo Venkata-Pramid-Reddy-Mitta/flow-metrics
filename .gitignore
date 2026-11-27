@@ -1,0 +1,26 @@
+# Byte-compiled and caches
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+
+# Test and lint caches
+.pytest_cache/
+.ruff_cache/
+.coverage
+coverage.xml
+coverage.json
+htmlcov/
+junit.xml
+
+# Generated, regenerable artifacts. These are rebuilt by `make verify` and the
+# evidence targets, so they are not committed. The committed fixture under
+# data/ is NOT ignored: it is the deterministic input a reviewer reproduces.
+docs/report.html
+docs/report.pdf
+docs/metrics.json
+.venv/
+venv/
+src/flowmetrics.egg-info/

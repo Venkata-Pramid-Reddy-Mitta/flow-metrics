@@ -1,0 +1,49 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "flowmetrics"
+version = "0.1.0"
+description = "Reconstruct delivery flow from issue state transitions and show WIP rising before the cycle-time average moves."
+readme = "README.md"
+license = { text = "MIT" }
+authors = [{ name = "Venkata Pramid Reddy Mitta" }]
+requires-python = ">=3.9"
+dependencies = []
+
+[project.optional-dependencies]
+# Dev and evidence tooling only. The runtime library and CLI use the standard
+# library alone, so `make verify` runs offline with no third-party runtime deps.
+dev = [
+  "pytest>=7",
+  "pytest-cov>=5",
+  "coverage>=7",
+  "ruff>=0.5",
+]
+evidence = [
+  "playwright>=1.40",
+  "cmarkgfm>=2023.0",
+  "Pillow>=10.0",
+]
+
+[project.scripts]
+flow-metrics = "flowmetrics.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
+
+[tool.coverage.run]
+branch = true
+source = ["flowmetrics"]
+
+[tool.coverage.report]
+show_missing = true
+exclude_lines = [
+  "pragma: no cover",
+  "if __name__ == .__main__.:",
+]
