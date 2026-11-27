@@ -1,0 +1,907 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>flow-metrics: Delivery Flow &amp; Survivorship Explorer</title>
+  <style>
+    :root {
+      --bg: #0b1324;
+      --panel: #101d35;
+      --panel-2: #0f172a;
+      --border: #233554;
+      --text: #e2e8f0;
+      --muted: #94a3b8;
+      --cyan: #22d3ee;
+      --orange: #f97316;
+      --violet: #a78bfa;
+      --ok: #22c55e;
+      --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      --sans: system-ui, -apple-system, Segoe UI, Helvetica, Arial, sans-serif;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: var(--sans);
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.55;
+    }
+    a { color: var(--cyan); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    .wrap { max-width: 1120px; margin: 0 auto; padding: 28px 20px 64px; }
+    .banner { width: 100%; border-radius: 14px; border: 1px solid var(--border); display: block; }
+    .nav {
+      display: flex; flex-wrap: wrap; gap: 12px; justify-content: space-between;
+      align-items: center; margin: 18px 0 26px; padding-bottom: 14px; border-bottom: 1px solid var(--border);
+    }
+    .nav-links { display: flex; flex-wrap: wrap; gap: 16px; font-size: 14px; }
+    .badge {
+      display: inline-block; padding: 3px 10px; border-radius: 999px;
+      font-family: var(--mono); font-size: 12px; font-weight: 600;
+      background: #1e293b; color: #cbd5e1; border: 1px solid var(--border);
+    }
+    .kpi-grid {
+      display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+      gap: 16px; margin-bottom: 28px;
+    }
+    .kpi {
+      background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 18px;
+    }
+    .kpi-label { font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); }
+    .kpi-val { font-family: var(--mono); font-size: 28px; font-weight: 800; margin: 6px 0; }
+    .kpi-sub { font-size: 13px; color: var(--muted); }
+    .section {
+      background: var(--panel); border: 1px solid var(--border); border-radius: 14px;
+      padding: 22px; margin-bottom: 24px;
+    }
+    h2 { margin: 0 0 8px; font-size: 20px; }
+    .lead { margin: 0 0 18px; color: var(--muted); font-size: 14px; }
+    .btn-row { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
+    .btn {
+      background: var(--panel-2); color: var(--text); border: 1px solid var(--border);
+      border-radius: 8px; padding: 7px 14px; font-size: 13px; cursor: pointer; font-weight: 600;
+    }
+    .btn.active, .btn:hover { background: #1e293b; border-color: var(--cyan); color: #fff; }
+    .chart-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(420px, 1fr)); gap: 16px; }
+    .chart-card { background: var(--panel-2); border: 1px solid var(--border); border-radius: 10px; padding: 16px; }
+    .chart-title { font-size: 14px; font-weight: 700; margin: 0 0 4px; }
+    .chart-meta { font-size: 12px; color: var(--muted); margin: 0 0 10px; font-family: var(--mono); }
+    .exp-box { background: var(--panel-2); border: 1px solid var(--border); border-radius: 10px; padding: 18px; }
+    .exp-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin-top: 12px; }
+    .exp-stat { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 12px; }
+    .exp-stat .k { font-size: 12px; color: var(--muted); }
+    .exp-stat .v { font-family: var(--mono); font-size: 20px; font-weight: 700; margin-top: 4px; color: #f8fafc; }
+    .diagram-img { width: 100%; border-radius: 10px; background: #fff; padding: 12px; }
+    .adr-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px; }
+    .adr-card { background: var(--panel-2); border: 1px solid var(--border); border-radius: 10px; padding: 14px; font-size: 13px; }
+    footer { text-align: center; color: var(--muted); font-size: 13px; margin-top: 32px; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <img class="banner" src="banner.svg" alt="flow-metrics banner">
+
+    <div class="nav">
+      <div class="nav-links">
+        <a href="#scenarios">Scenario Explorer</a>
+        <a href="#experiments">Experiments (1-4)</a>
+        <a href="#architecture">Architecture</a>
+        <a href="#adrs">Decisions (ADRs)</a>
+      </div>
+      <div>
+        <span class="badge">Pure Python Stdlib</span>
+        <span class="badge">108 Tests / 100% Coverage</span>
+      </div>
+    </div>
+
+    <div class="kpi-grid">
+      <div class="kpi">
+        <div class="kpi-label">Leading WIP Signal</div>
+        <div class="kpi-val" style="color: var(--cyan);">8-Week Lead</div>
+        <div class="kpi-sub">WIP breaks its band at week 13; completed cycle time stays flat until week 21.</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">Survivorship Bias (Wk 20)</div>
+        <div class="kpi-val" style="color: var(--orange);">68% Understated</div>
+        <div class="kpi-sub">Reported completed mean was 5.1d while open work took 16.1d to finish.</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">Little's Law Divergence</div>
+        <div class="kpi-val" style="color: var(--violet);">5% -&gt; 57% (11x)</div>
+        <div class="kpi-sub">Time-averaged WIP tracks within 5% in steady state and widens 11x in transition.</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">Honest Boundary</div>
+        <div class="kpi-val" style="color: var(--ok);">5 Weeks Ambiguous</div>
+        <div class="kpi-sub">Transient burst trips the same alarm; scenarios cannot be told apart until week 18.</div>
+      </div>
+    </div>
+
+    <section class="section" id="scenarios">
+      <h2>Interactive Scenario Explorer</h2>
+      <p class="lead">Switch between the three committed deterministic fixtures to inspect weekly WIP versus the 2.5-sigma baseline ceiling and completed cycle-time averages.</p>
+      <div class="btn-row">
+        <button class="btn active" data-scn="capacity_drop">Capacity Drop (Slowdown)</button>
+        <button class="btn" data-scn="steady">Steady State (Zero False Alarms)</button>
+        <button class="btn" data-scn="transient_burst">Transient Burst (Ambiguity Boundary)</button>
+      </div>
+      <div class="chart-grid">
+        <div class="chart-card">
+          <div class="chart-title">Weekly End-of-Week WIP vs Baseline Ceiling</div>
+          <div class="chart-meta" id="wip-meta"></div>
+          <svg id="wip-svg" viewBox="0 0 480 220" width="100%" height="220"></svg>
+        </div>
+        <div class="chart-card">
+          <div class="chart-title">Weekly Mean Completed Cycle Time (Days)</div>
+          <div class="chart-meta" id="ct-meta"></div>
+          <svg id="ct-svg" viewBox="0 0 480 220" width="100%" height="220"></svg>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="experiments">
+      <h2>Reproducible Experiments</h2>
+      <p class="lead">Every figure below is read directly from the committed experiment JSON files generated by <code>make verify</code>.</p>
+      <div class="btn-row">
+        <button class="btn active" data-exp="lead_time">Exp 1: Lead Time</button>
+        <button class="btn" data-exp="survivorship">Exp 2: Survivorship</button>
+        <button class="btn" data-exp="littles">Exp 3: Little's Law</button>
+        <button class="btn" data-exp="onset">Exp 4: Onset Ambiguity</button>
+      </div>
+      <div class="exp-box" id="exp-content"></div>
+    </section>
+
+    <section class="section" id="architecture">
+      <h2>Architecture &amp; Receipts Loop</h2>
+      <p class="lead">Zero-dependency reconstruction of Jira-style state transitions into weekly flow, band detection, Little's Law cross-check, and machine-verified receipts.</p>
+      <img class="diagram-img" src="diagrams/architecture.svg" alt="flow-metrics architecture diagram">
+    </section>
+
+    <section class="section" id="adrs">
+      <h2>Architecture Decision Records</h2>
+      <div class="adr-list">
+        <div class="adr-card"><strong>ADR-001</strong><br>Three-state model (todo, in_progress, done) folding blocked and review into commit-to-done cycle time.</div>
+        <div class="adr-card"><strong>ADR-002</strong><br>Shortest-remaining-first service discipline and why FIFO collapses the 8-week lead to zero.</div>
+        <div class="adr-card"><strong>ADR-003</strong><br>2.5-sigma trend band with 3-week persistence and daily time-averaged WIP for Little's Law.</div>
+        <div class="adr-card"><strong>ADR-004</strong><br>Transient burst versus permanent slowdown boundary: 5 weeks of irreducible ambiguity.</div>
+        <div class="adr-card"><strong>ADR-005</strong><br>Seeded deterministic fixtures over live Jira exports so every figure reproduces offline.</div>
+      </div>
+    </section>
+
+    <footer>
+      flow-metrics | MIT License | Copyright 2026 Venkata Pramid Reddy Mitta
+    </footer>
+  </div>
+
+  <script>
+    const DATA = {
+  "scenarios": {
+    "capacity_drop": {
+      "label": "Capacity Drop (Week 12 Onset)",
+      "wip_signal_week": 13,
+      "cycle_signal_week": 21,
+      "lead_weeks": 8,
+      "wip_upper": 14.29,
+      "ct_upper": 6.06,
+      "rows": [
+        {
+          "week": 0,
+          "wip": 6,
+          "wip_avg": 8.29,
+          "ct": 3.77,
+          "throughput": 13
+        },
+        {
+          "week": 1,
+          "wip": 8,
+          "wip_avg": 9.29,
+          "ct": 3.93,
+          "throughput": 15
+        },
+        {
+          "week": 2,
+          "wip": 10,
+          "wip_avg": 11,
+          "ct": 4.17,
+          "throughput": 18
+        },
+        {
+          "week": 3,
+          "wip": 8,
+          "wip_avg": 12,
+          "ct": 4.25,
+          "throughput": 20
+        },
+        {
+          "week": 4,
+          "wip": 8,
+          "wip_avg": 12.86,
+          "ct": 4.35,
+          "throughput": 20
+        },
+        {
+          "week": 5,
+          "wip": 8,
+          "wip_avg": 12,
+          "ct": 4.35,
+          "throughput": 17
+        },
+        {
+          "week": 6,
+          "wip": 13,
+          "wip_avg": 13.29,
+          "ct": 5.18,
+          "throughput": 17
+        },
+        {
+          "week": 7,
+          "wip": 12,
+          "wip_avg": 15,
+          "ct": 4.32,
+          "throughput": 22
+        },
+        {
+          "week": 8,
+          "wip": 10,
+          "wip_avg": 12.86,
+          "ct": 5.88,
+          "throughput": 16
+        },
+        {
+          "week": 9,
+          "wip": 9,
+          "wip_avg": 13,
+          "ct": 5.23,
+          "throughput": 22
+        },
+        {
+          "week": 10,
+          "wip": 8,
+          "wip_avg": 13.43,
+          "ct": 4.4,
+          "throughput": 20
+        },
+        {
+          "week": 11,
+          "wip": 9,
+          "wip_avg": 12,
+          "ct": 4.53,
+          "throughput": 17
+        },
+        {
+          "week": 12,
+          "wip": 12,
+          "wip_avg": 13.29,
+          "ct": 5,
+          "throughput": 14
+        },
+        {
+          "week": 13,
+          "wip": 17,
+          "wip_avg": 17.71,
+          "ct": 4.92,
+          "throughput": 13
+        },
+        {
+          "week": 14,
+          "wip": 18,
+          "wip_avg": 20.43,
+          "ct": 4.64,
+          "throughput": 14
+        },
+        {
+          "week": 15,
+          "wip": 21,
+          "wip_avg": 22.71,
+          "ct": 4.29,
+          "throughput": 14
+        },
+        {
+          "week": 16,
+          "wip": 24,
+          "wip_avg": 24.43,
+          "ct": 5.07,
+          "throughput": 14
+        },
+        {
+          "week": 17,
+          "wip": 29,
+          "wip_avg": 28.71,
+          "ct": 4.27,
+          "throughput": 15
+        },
+        {
+          "week": 18,
+          "wip": 33,
+          "wip_avg": 31.57,
+          "ct": 7.57,
+          "throughput": 14
+        },
+        {
+          "week": 19,
+          "wip": 35,
+          "wip_avg": 35.29,
+          "ct": 7.13,
+          "throughput": 15
+        },
+        {
+          "week": 20,
+          "wip": 38,
+          "wip_avg": 39.57,
+          "ct": 5.14,
+          "throughput": 14
+        },
+        {
+          "week": 21,
+          "wip": 38,
+          "wip_avg": 39.86,
+          "ct": 9.27,
+          "throughput": 15
+        },
+        {
+          "week": 22,
+          "wip": 44,
+          "wip_avg": 42.57,
+          "ct": 8,
+          "throughput": 12
+        },
+        {
+          "week": 23,
+          "wip": 45,
+          "wip_avg": 47.43,
+          "ct": 8.4,
+          "throughput": 15
+        },
+        {
+          "week": 24,
+          "wip": 51,
+          "wip_avg": 51,
+          "ct": 9,
+          "throughput": 13
+        },
+        {
+          "week": 25,
+          "wip": 55,
+          "wip_avg": 56.57,
+          "ct": 6.36,
+          "throughput": 14
+        }
+      ]
+    },
+    "steady": {
+      "label": "Steady State (Control)",
+      "wip_signal_week": null,
+      "cycle_signal_week": null,
+      "lead_weeks": null,
+      "wip_upper": 14.29,
+      "ct_upper": 6.06,
+      "rows": [
+        {
+          "week": 0,
+          "wip": 6,
+          "wip_avg": 8.29,
+          "ct": 3.77,
+          "throughput": 13
+        },
+        {
+          "week": 1,
+          "wip": 8,
+          "wip_avg": 9.29,
+          "ct": 3.93,
+          "throughput": 15
+        },
+        {
+          "week": 2,
+          "wip": 10,
+          "wip_avg": 11,
+          "ct": 4.17,
+          "throughput": 18
+        },
+        {
+          "week": 3,
+          "wip": 8,
+          "wip_avg": 12,
+          "ct": 4.25,
+          "throughput": 20
+        },
+        {
+          "week": 4,
+          "wip": 8,
+          "wip_avg": 12.86,
+          "ct": 4.35,
+          "throughput": 20
+        },
+        {
+          "week": 5,
+          "wip": 8,
+          "wip_avg": 12,
+          "ct": 4.35,
+          "throughput": 17
+        },
+        {
+          "week": 6,
+          "wip": 13,
+          "wip_avg": 13.29,
+          "ct": 5.18,
+          "throughput": 17
+        },
+        {
+          "week": 7,
+          "wip": 12,
+          "wip_avg": 15,
+          "ct": 4.32,
+          "throughput": 22
+        },
+        {
+          "week": 8,
+          "wip": 10,
+          "wip_avg": 12.86,
+          "ct": 5.88,
+          "throughput": 16
+        },
+        {
+          "week": 9,
+          "wip": 9,
+          "wip_avg": 13,
+          "ct": 5.23,
+          "throughput": 22
+        },
+        {
+          "week": 10,
+          "wip": 8,
+          "wip_avg": 13.43,
+          "ct": 4.4,
+          "throughput": 20
+        },
+        {
+          "week": 11,
+          "wip": 9,
+          "wip_avg": 12,
+          "ct": 4.53,
+          "throughput": 17
+        },
+        {
+          "week": 12,
+          "wip": 7,
+          "wip_avg": 12.71,
+          "ct": 5.16,
+          "throughput": 19
+        },
+        {
+          "week": 13,
+          "wip": 9,
+          "wip_avg": 12.57,
+          "ct": 5,
+          "throughput": 16
+        },
+        {
+          "week": 14,
+          "wip": 7,
+          "wip_avg": 11,
+          "ct": 4.94,
+          "throughput": 17
+        },
+        {
+          "week": 15,
+          "wip": 5,
+          "wip_avg": 10,
+          "ct": 4.47,
+          "throughput": 19
+        },
+        {
+          "week": 16,
+          "wip": 8,
+          "wip_avg": 9.14,
+          "ct": 4.21,
+          "throughput": 14
+        },
+        {
+          "week": 17,
+          "wip": 8,
+          "wip_avg": 10.86,
+          "ct": 3.75,
+          "throughput": 20
+        },
+        {
+          "week": 18,
+          "wip": 10,
+          "wip_avg": 10.43,
+          "ct": 4.06,
+          "throughput": 16
+        },
+        {
+          "week": 19,
+          "wip": 8,
+          "wip_avg": 10,
+          "ct": 4.11,
+          "throughput": 19
+        },
+        {
+          "week": 20,
+          "wip": 5,
+          "wip_avg": 10.57,
+          "ct": 3.85,
+          "throughput": 20
+        },
+        {
+          "week": 21,
+          "wip": 7,
+          "wip_avg": 7.71,
+          "ct": 3.92,
+          "throughput": 13
+        },
+        {
+          "week": 22,
+          "wip": 10,
+          "wip_avg": 10.86,
+          "ct": 4.6,
+          "throughput": 15
+        },
+        {
+          "week": 23,
+          "wip": 8,
+          "wip_avg": 12.43,
+          "ct": 4.28,
+          "throughput": 18
+        },
+        {
+          "week": 24,
+          "wip": 9,
+          "wip_avg": 12.57,
+          "ct": 5.11,
+          "throughput": 18
+        },
+        {
+          "week": 25,
+          "wip": 8,
+          "wip_avg": 12.57,
+          "ct": 4.84,
+          "throughput": 19
+        }
+      ]
+    },
+    "transient_burst": {
+      "label": "Transient Burst (4-Week Spike)",
+      "wip_signal_week": 12,
+      "cycle_signal_week": 16,
+      "lead_weeks": 4,
+      "wip_upper": 14.29,
+      "ct_upper": 6.06,
+      "rows": [
+        {
+          "week": 0,
+          "wip": 6,
+          "wip_avg": 8.29,
+          "ct": 3.77,
+          "throughput": 13
+        },
+        {
+          "week": 1,
+          "wip": 8,
+          "wip_avg": 9.29,
+          "ct": 3.93,
+          "throughput": 15
+        },
+        {
+          "week": 2,
+          "wip": 10,
+          "wip_avg": 11,
+          "ct": 4.17,
+          "throughput": 18
+        },
+        {
+          "week": 3,
+          "wip": 8,
+          "wip_avg": 12,
+          "ct": 4.25,
+          "throughput": 20
+        },
+        {
+          "week": 4,
+          "wip": 8,
+          "wip_avg": 12.86,
+          "ct": 4.35,
+          "throughput": 20
+        },
+        {
+          "week": 5,
+          "wip": 8,
+          "wip_avg": 12,
+          "ct": 4.35,
+          "throughput": 17
+        },
+        {
+          "week": 6,
+          "wip": 13,
+          "wip_avg": 13.29,
+          "ct": 5.18,
+          "throughput": 17
+        },
+        {
+          "week": 7,
+          "wip": 12,
+          "wip_avg": 15,
+          "ct": 4.32,
+          "throughput": 22
+        },
+        {
+          "week": 8,
+          "wip": 10,
+          "wip_avg": 12.86,
+          "ct": 5.88,
+          "throughput": 16
+        },
+        {
+          "week": 9,
+          "wip": 9,
+          "wip_avg": 13,
+          "ct": 5.23,
+          "throughput": 22
+        },
+        {
+          "week": 10,
+          "wip": 8,
+          "wip_avg": 13.43,
+          "ct": 4.4,
+          "throughput": 20
+        },
+        {
+          "week": 11,
+          "wip": 9,
+          "wip_avg": 12,
+          "ct": 4.53,
+          "throughput": 17
+        },
+        {
+          "week": 12,
+          "wip": 23,
+          "wip_avg": 19.86,
+          "ct": 4.89,
+          "throughput": 18
+        },
+        {
+          "week": 13,
+          "wip": 28,
+          "wip_avg": 29.29,
+          "ct": 4.41,
+          "throughput": 27
+        },
+        {
+          "week": 14,
+          "wip": 34,
+          "wip_avg": 33,
+          "ct": 5.7,
+          "throughput": 23
+        },
+        {
+          "week": 15,
+          "wip": 39,
+          "wip_avg": 39.29,
+          "ct": 5.58,
+          "throughput": 24
+        },
+        {
+          "week": 16,
+          "wip": 35,
+          "wip_avg": 39.43,
+          "ct": 7.14,
+          "throughput": 22
+        },
+        {
+          "week": 17,
+          "wip": 30,
+          "wip_avg": 36.29,
+          "ct": 7,
+          "throughput": 20
+        },
+        {
+          "week": 18,
+          "wip": 27,
+          "wip_avg": 30.71,
+          "ct": 13.89,
+          "throughput": 18
+        },
+        {
+          "week": 19,
+          "wip": 27,
+          "wip_avg": 30.29,
+          "ct": 10.05,
+          "throughput": 20
+        },
+        {
+          "week": 20,
+          "wip": 26,
+          "wip_avg": 28.14,
+          "ct": 5.33,
+          "throughput": 18
+        },
+        {
+          "week": 21,
+          "wip": 27,
+          "wip_avg": 28.43,
+          "ct": 15.12,
+          "throughput": 17
+        },
+        {
+          "week": 22,
+          "wip": 26,
+          "wip_avg": 28,
+          "ct": 8.33,
+          "throughput": 18
+        },
+        {
+          "week": 23,
+          "wip": 25,
+          "wip_avg": 28,
+          "ct": 13.68,
+          "throughput": 22
+        },
+        {
+          "week": 24,
+          "wip": 21,
+          "wip_avg": 26.29,
+          "ct": 9.31,
+          "throughput": 16
+        },
+        {
+          "week": 25,
+          "wip": 19,
+          "wip_avg": 25,
+          "ct": 20.25,
+          "throughput": 20
+        }
+      ]
+    }
+  },
+  "experiments": {
+    "lead_time": {
+      "cycle_signal_week": 21,
+      "flat_weeks": 6,
+      "lead_weeks": 8,
+      "onset_week": 12,
+      "scenario": "capacity_drop",
+      "steady_scenario_signals": false,
+      "wip_signal_week": 13
+    },
+    "survivorship": {
+      "eventual_ct_days": 16.1,
+      "reported_ct_days": 5.1,
+      "survivorship_gap_pct": 68.1,
+      "worst_week": 20
+    },
+    "littles": {
+      "ratio": 10.7,
+      "steady_divergence_pct": 5.3,
+      "transition_divergence_pct": 57.2
+    },
+    "onset": {
+      "alarm_week": 13,
+      "ambiguous_weeks": 5,
+      "burst_wip_signal_week": 12,
+      "distinguishable_from_week": 18,
+      "drop_wip_signal_week": 13,
+      "max_rel_wip_diff_first_3wk_pct": 47.1
+    }
+  }
+};
+
+    function drawLineChart(svgId, rows, getter, upper, color, signalWeek) {
+      const svg = document.getElementById(svgId);
+      const W = 480, H = 220, padL = 38, padR = 16, padT = 18, padB = 28;
+      const plotW = W - padL - padR, plotH = H - padT - padB;
+      const vals = rows.map(getter).filter(v => v !== null);
+      const maxVal = Math.max(upper * 1.15, ...vals, 1);
+      const x = w => padL + (w / 25) * plotW;
+      const y = v => padT + plotH - (v / maxVal) * plotH;
+
+      let out = "";
+      out += `<line x1="${padL}" y1="${padT + plotH}" x2="${W - padR}" y2="${padT + plotH}" stroke="#334155" stroke-width="1"/>`;
+      out += `<line x1="${padL}" y1="${padT}" x2="${padL}" y2="${padT + plotH}" stroke="#334155" stroke-width="1"/>`;
+
+      const uy = y(upper);
+      out += `<line x1="${padL}" y1="${uy.toFixed(1)}" x2="${W - padR}" y2="${uy.toFixed(1)}" stroke="#64748b" stroke-width="1.2" stroke-dasharray="4,4"/>`;
+      out += `<text x="${W - padR - 2}" y="${(uy - 5).toFixed(1)}" text-anchor="end" font-family="monospace" font-size="10" fill="#94a3b8">ceiling ${upper}</text>`;
+
+      if (signalWeek !== null) {
+        const sx = x(signalWeek);
+        out += `<line x1="${sx.toFixed(1)}" y1="${padT}" x2="${sx.toFixed(1)}" y2="${padT + plotH}" stroke="${color}" stroke-width="1.5" stroke-dasharray="3,3"/>`;
+        out += `<text x="${(sx + 4).toFixed(1)}" y="${padT + 12}" font-family="monospace" font-size="10" fill="${color}">signal wk ${signalWeek}</text>`;
+      }
+
+      const pts = rows
+        .filter(r => getter(r) !== null)
+        .map(r => `${x(r.week).toFixed(1)},${y(getter(r)).toFixed(1)}`)
+        .join(" ");
+      out += `<polyline fill="none" stroke="${color}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" points="${pts}"/>`;
+
+      [0, 5, 10, 15, 20, 25].forEach(w => {
+        out += `<text x="${x(w).toFixed(1)}" y="${H - 8}" text-anchor="middle" font-family="monospace" font-size="10" fill="#64748b">W${w}</text>`;
+      });
+      svg.innerHTML = out;
+    }
+
+    function renderScenario(key) {
+      const s = DATA.scenarios[key];
+      document.getElementById("wip-meta").textContent =
+        `${s.label} | ceiling=${s.wip_upper} | signal=${s.wip_signal_week !== null ? "week " + s.wip_signal_week : "none"}`;
+      document.getElementById("ct-meta").textContent =
+        `${s.label} | ceiling=${s.ct_upper}d | signal=${s.cycle_signal_week !== null ? "week " + s.cycle_signal_week : "none"}`;
+      drawLineChart("wip-svg", s.rows, r => r.wip, s.wip_upper, "#22d3ee", s.wip_signal_week);
+      drawLineChart("ct-svg", s.rows, r => r.ct, s.ct_upper, "#f97316", s.cycle_signal_week);
+    }
+
+    const EXP_META = {
+      lead_time: {
+        title: "Experiment 1: Leading WIP Signal vs Lagging Cycle-Time Average",
+        desc: "Measures how many weeks before the cycle-time average WIP breaks its baseline band after a week-12 capacity drop.",
+        stats: d => [
+          ["WIP Signal Week", "Week " + d.wip_signal_week],
+          ["Cycle-Time Signal Week", "Week " + d.cycle_signal_week],
+          ["Leading Warning", d.lead_weeks + " weeks"],
+          ["Steady False Alarms", d.steady_scenario_signals ? "Yes" : "0 (None)"]
+        ]
+      },
+      survivorship: {
+        title: "Experiment 2: Survivorship Bias in Completed Cycle Time",
+        desc: "Compares reported completed cycle time at the worst week against the eventual cycle time of all work alive that week.",
+        stats: d => [
+          ["Worst Week", "Week " + d.worst_week],
+          ["Reported Mean CT", d.reported_ct_days + " days"],
+          ["Eventual Mean CT", d.eventual_ct_days + " days"],
+          ["Understatement", Math.round(d.survivorship_gap_pct) + "%"]
+        ]
+      },
+      littles: {
+        title: "Experiment 3: Little's Law Cross-Check (Steady vs Transition)",
+        desc: "Uses daily time-averaged WIP divided by throughput to detect equilibrium breakdown without waiting for hindsight.",
+        stats: d => [
+          ["Steady-State Divergence", d.steady_divergence_pct + "%"],
+          ["Transition Divergence", d.transition_divergence_pct + "%"],
+          ["Divergence Ratio", d.ratio + "x wider"]
+        ]
+      },
+      onset: {
+        title: "Experiment 4: Transient Burst vs Permanent Slowdown Boundary",
+        desc: "Measures the irreducible ambiguity window where a temporary arrival burst looks indistinguishable from a permanent drop.",
+        stats: d => [
+          ["Alarm Fired", "Week " + d.alarm_week],
+          ["Distinguishable At", "Week " + d.distinguishable_from_week],
+          ["Ambiguity Window", d.ambiguous_weeks + " weeks"]
+        ]
+      }
+    };
+
+    function renderExp(key) {
+      const meta = EXP_META[key];
+      const d = DATA.experiments[key];
+      const statsHtml = meta.stats(d).map(([k, v]) =>
+        `<div class="exp-stat"><div class="k">${k}</div><div class="v">${v}</div></div>`
+      ).join("");
+      document.getElementById("exp-content").innerHTML =
+        `<h3 style="margin:0 0 6px;font-size:17px;">${meta.title}</h3>
+         <p style="margin:0;color:var(--muted);font-size:14px;">${meta.desc}</p>
+         <div class="exp-grid">${statsHtml}</div>`;
+    }
+
+    document.querySelectorAll("[data-scn]").forEach(btn => {
+      btn.addEventListener("click", () => {
+        document.querySelectorAll("[data-scn]").forEach(b => b.classList.remove("active"));
+        btn.classList.add("active");
+        renderScenario(btn.dataset.scn);
+      });
+    });
+
+    document.querySelectorAll("[data-exp]").forEach(btn => {
+      btn.addEventListener("click", () => {
+        document.querySelectorAll("[data-exp]").forEach(b => b.classList.remove("active"));
+        btn.classList.add("active");
+        renderExp(btn.dataset.exp);
+      });
+    });
+
+    renderScenario("capacity_drop");
+    renderExp("lead_time");
+  </script>
+</body>
+</html>

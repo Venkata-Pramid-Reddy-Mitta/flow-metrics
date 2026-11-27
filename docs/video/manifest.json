@@ -1,0 +1,34 @@
+{
+  "segments": [
+    {
+      "comment": "baseline: a steady board, no false alarm",
+      "command": "python -m flowmetrics.cli check --generate steady",
+      "exit_code": 0,
+      "duration_s": 0.074
+    },
+    {
+      "comment": "the headline: WIP leads the average by 8 weeks",
+      "command": "python -m flowmetrics.cli check",
+      "exit_code": 2,
+      "duration_s": 0.074
+    },
+    {
+      "comment": "the uncomfortable number: the average understated by 68%",
+      "command": "python experiments/exp_survivorship.py",
+      "exit_code": 0,
+      "duration_s": 0.056
+    },
+    {
+      "comment": "the boundary: a burst looks the same at alarm time",
+      "command": "python experiments/exp_indistinguishable_onset.py",
+      "exit_code": 0,
+      "duration_s": 0.077
+    },
+    {
+      "comment": "the receipts: every figure re-measured and guarded",
+      "command": "python tools/check_numbers.py",
+      "exit_code": 0,
+      "duration_s": 0.037
+    }
+  ]
+}

@@ -1,0 +1,31 @@
+{
+  "source": "docs/report.html",
+  "shots": [
+    {
+      "file": "docs/screenshots/report_overview.png",
+      "framed_by": [
+        "flow-metrics report",
+        "WIP rises before"
+      ]
+    },
+    {
+      "file": "docs/screenshots/report_wip.png",
+      "framed_by": [
+        "WIP rises before",
+        "What the average hid"
+      ]
+    },
+    {
+      "file": "docs/screenshots/report_littles.png",
+      "framed_by": [
+        "Little's Law",
+        "Weekly series"
+      ]
+    }
+  ],
+  "badge": {
+    "color": "rgb(255, 255, 255)",
+    "background": "rgb(179, 32, 32)",
+    "visible": true
+  }
+}
