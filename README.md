@@ -4,10 +4,10 @@
 
 # flow-metrics
 
-**Reconstructs delivery flow from Jira-style state transitions and shows work in progress breaking its normal band a full lead of 8 weeks before the cycle-time average a team watches ever moves.**
+**Reconstructs delivery flow from Jira-style state transitions and shows work in progress breaking its normal band 8 weeks before the cycle-time average moves.**
 
 [![CI](https://github.com/Venkata-Pramid-Reddy-Mitta/flow-metrics/actions/workflows/ci.yml/badge.svg)](https://github.com/Venkata-Pramid-Reddy-Mitta/flow-metrics/actions/workflows/ci.yml)
-![Python 3.9 | 3.11 | 3.12](https://img.shields.io/badge/python-3.9%20%7C%203.11%20%7C%203.12-blue)
+![Python 3.11 | 3.12](https://img.shields.io/badge/python-3.11%20%7C%203.12-blue)
 ![License: MIT](https://img.shields.io/badge/license-MIT-green)
 ![Runtime Deps: 0](https://img.shields.io/badge/runtime_deps-0-informational)
 [![Interactive Report](https://img.shields.io/badge/GitHub%20Pages-Interactive%20Report-0ea5e9)](https://Venkata-Pramid-Reddy-Mitta.github.io/flow-metrics/)
@@ -34,7 +34,7 @@ Every figure above is re-measured by **108 tests** at **100% line coverage** plu
 
 ## Quickstart
 
-Prerequisites: Python 3.9 or newer. No network, no API keys, no services.
+Prerequisites: Python 3.11 or newer. No network, no API keys, no services.
 
 ```bash
 git clone https://github.com/Venkata-Pramid-Reddy-Mitta/flow-metrics.git
